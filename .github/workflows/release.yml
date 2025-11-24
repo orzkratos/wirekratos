@@ -1,0 +1,49 @@
+name: GO-BUILD-CHECK
+
+permissions:
+  contents: write
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-latest ]
+        go: [ "1.25.x", "stable" ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache: true
+
+      - name: Test
+        run: |
+          go mod tidy
+          go test -v -race -covermode=atomic -coverprofile=coverage.out ./...
+
+      - name: Lint
+        if: matrix.go == 'stable'
+        run: |
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          golangci-lint run --timeout=5m
+
+      - name: Upload Coverage
+        if: matrix.go == 'stable'
+        uses: coverallsapp/github-action@v2
+        with:
+          file: coverage.out
